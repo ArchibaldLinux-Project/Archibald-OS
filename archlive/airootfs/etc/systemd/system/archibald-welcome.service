@@ -1,0 +1,17 @@
+[Unit]
+Description=Archibald Linux Welcome Wizard
+After=graphical.target
+Wants=graphical.target
+ConditionPathExists=!/home/root/.archibald-welcome-shown
+ConditionPathExists=!/run/archiso/booted
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/archibald-welcome
+RemainAfterExit=yes
+User=root
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/root/.Xauthority
+
+[Install]
+WantedBy=graphical.target

@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+"""
+Archibald Linux Welcome Wizard
+Informational wizard that runs on first boot
+"""
+
+import sys
+import os
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QWizard, QWizardPage, QLabel, QPushButton, QTextEdit,
+    QGroupBox, QGridLayout, QCheckBox
+)
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QFont, QPixmap
+
+
+def is_live_environment():
+    """Check if running in live environment"""
+    # Check for archiso marker
+    if os.path.exists('/run/archiso/booted'):
+        return True
+    # Check for typical live environment indicators
+    if os.path.exists('/etc/archiso'):
+        return True
+    return False
+
+
+class WelcomePage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Welcome to Archibald Linux")
+        self.setSubTitle("Your journey with Archibald Linux begins here")
+        
+        layout = QVBoxLayout()
+        
+        label = QLabel(
+            "<h2>Welcome to Archibald Linux!</h2>"
+            "<p>Thank you for choosing Archibald Linux, a modern, user-friendly "
+            "distribution based on Arch Linux.</p>"
+            "<p>This wizard will introduce you to the key features of your new system.</p>"
+        )
+        label.setWordWrap(True)
+        label.setAlignment(Qt.AlignCenter)
+        
+        layout.addWidget(label)
+        layout.addStretch()
+        self.setLayout(layout)
+
+
+class FeaturesPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Key Features")
+        self.setSubTitle("Discover what makes Archibald Linux special")
+        
+        layout = QVBoxLayout()
+        
+        features_group = QGroupBox("Archibald Linux Features")
+        features_layout = QGridLayout()
+        
+        features = [
+            ("KDE Plasma Desktop", "Modern, intuitive desktop environment"),
+            ("Arch Linux Base", "Rolling release with latest packages"),
+            ("Comprehensive Tools", "Full rescue and system administration toolkit"),
+            ("Custom Installer", "User-friendly graphical installer"),
+            ("Virtualization Ready", "Support for QEMU, VirtualBox, VMware, Hyper-V"),
+            ("Accessibility", "Screen reader and audio support built-in"),
+        ]
+        
+        for i, (feature, description) in enumerate(features):
+            feature_label = QLabel(f"<b>{feature}</b>")
+            desc_label = QLabel(description)
+            desc_label.setWordWrap(True)
+            desc_label.setStyleSheet("color: #666;")
+            
+            features_layout.addWidget(feature_label, i, 0)
+            features_layout.addWidget(desc_label, i, 1)
+        
+        features_group.setLayout(features_layout)
+        layout.addWidget(features_group)
+        layout.addStretch()
+        
+        self.setLayout(layout)
+
+
+class GettingStartedPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Getting Started")
+        self.setSubTitle("Quick tips to help you get started")
+        
+        layout = QVBoxLayout()
+        
+        tips_group = QGroupBox("Quick Tips")
+        tips_layout = QVBoxLayout()
+        
+        tips = [
+            "• Use the 'Install Archibald Linux' icon on the desktop to install the system",
+            "• Open Konsole (terminal) to access the command line",
+            "• Press Meta (Windows) key to open the application launcher",
+            "• Right-click on desktop to configure display settings",
+            "• System Settings can be accessed from the application menu",
+            "• Use 'neofetch' in terminal to see system information",
+            "• Network is configured automatically via DHCP",
+            "• For Wi-Fi, use the NetworkManager applet in the system tray",
+        ]
+        
+        for tip in tips:
+            label = QLabel(tip)
+            label.setWordWrap(True)
+            tips_layout.addWidget(label)
+        
+        tips_group.setLayout(tips_layout)
+        layout.addWidget(tips_group)
+        layout.addStretch()
+        
+        self.setLayout(layout)
+
+
+class ResourcesPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Resources & Support")
+        self.setSubTitle("Where to find help and documentation")
+        
+        layout = QVBoxLayout()
+        
+        resources_group = QGroupBox("Helpful Resources")
+        resources_layout = QVBoxLayout()
+        
+        resources = [
+            ("Website", "https://archibald-linux.space"),
+            ("Documentation", "https://wiki.archlinux.org"),
+            ("Forum", "https://bbs.archlinux.org"),
+            ("Bug Reports", "https://bugs.archlinux.org"),
+            ("GitHub", "https://github.com/ArchibaldLinux-Project/Archibald-OS"),
+        ]
+        
+        for name, url in resources:
+            label = QLabel(f"<b>{name}:</b> <a href='{url}'>{url}</a>")
+            label.setOpenExternalLinks(True)
+            label.setWordWrap(True)
+            resources_layout.addWidget(label)
+        
+        resources_group.setLayout(resources_layout)
+        layout.addWidget(resources_group)
+        
+        note_group = QGroupBox("Note")
+        note_layout = QVBoxLayout()
+        note_label = QLabel(
+            "Archibald Linux is based on Arch Linux. For general Arch Linux "
+            "documentation and community resources, refer to the official Arch Linux wiki."
+        )
+        note_label.setWordWrap(True)
+        note_layout.addWidget(note_label)
+        note_group.setLayout(note_layout)
+        layout.addWidget(note_group)
+        
+        layout.addStretch()
+        self.setLayout(layout)
+
+
+class SystemInfoPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("System Information")
+        self.setSubTitle("Your current system configuration")
+        
+        layout = QVBoxLayout()
+        
+        info_group = QGroupBox("System Details")
+        info_layout = QVBoxLayout()
+        
+        info_text = QTextEdit()
+        info_text.setReadOnly(True)
+        
+        # Get system information
+        try:
+            import subprocess
+            result = subprocess.run(['neofetch', '--stdout'], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                info_text.setPlainText(result.stdout)
+            else:
+                info_text.setPlainText("neofetch not available")
+        except:
+            info_text.setPlainText("Unable to retrieve system information")
+        
+        info_layout.addWidget(info_text)
+        info_group.setLayout(info_layout)
+        layout.addWidget(info_group)
+        
+        self.setLayout(layout)
+
+
+class ArchibaldWelcome(QWizard):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Archibald Linux Welcome")
+        self.setMinimumSize(800, 600)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        
+        # Add pages
+        self.addPage(WelcomePage())
+        self.addPage(FeaturesPage())
+        self.addPage(GettingStartedPage())
+        self.addPage(ResourcesPage())
+        self.addPage(SystemInfoPage())
+        
+        # Set wizard style
+        self.setWizardStyle(QWizard.ModernStyle)
+        self.setOption(QWizard.HaveHelpButton, False)
+        self.setOption(QWizard.HaveCustomButton1, True)
+        self.setButtonText(QWizard.CustomButton1, "Don't show again")
+        self.customButtonClicked.connect(self.handle_dont_show_again)
+        
+        self.dont_show = False
+    
+    def handle_dont_show_again(self):
+        self.dont_show = True
+        # Create marker file
+        try:
+            with open('/home/root/.archibald-welcome-shown', 'w') as f:
+                f.write('shown')
+        except:
+            pass
+        self.accept()
+
+
+def main():
+    # Check if running in live environment
+    if is_live_environment():
+        print("Running in live environment, skipping welcome wizard")
+        return
+    
+    # Check if already shown
+    marker_file = '/home/root/.archibald-welcome-shown'
+    if os.path.exists(marker_file):
+        print("Welcome wizard already shown, skipping")
+        return
+    
+    app = QApplication(sys.argv)
+    app.setApplicationName("Archibald Linux Welcome")
+    
+    welcome = ArchibaldWelcome()
+    welcome.show()
+    
+    sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    main()
