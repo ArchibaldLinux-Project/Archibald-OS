@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Install Archibald Linux
+GenericName=System Installer
+Comment=Install Archibald Linux to your hard drive
+Exec=pkexec /usr/local/bin/archibald-installer
+Icon=system-install
+Terminal=false
+StartupNotify=true
+Categories=System;

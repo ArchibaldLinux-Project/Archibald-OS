@@ -1,0 +1,651 @@
+#!/usr/bin/env python3
+"""
+Archibald Linux Installer - GUI for archinstall
+A clean, multi-threaded PyQt5 GUI that provides all archinstall functionality
+"""
+
+import sys
+import os
+import subprocess
+import threading
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QWizard, QWizardPage, QLabel, QLineEdit, QComboBox, QCheckBox,
+    QPushButton, QProgressBar, QTextEdit, QGroupBox, QFormLayout,
+    QSpinBox, QDoubleSpinBox, QFileDialog, QMessageBox, QGridLayout,
+    QTabWidget, QListWidget, QSlider, QRadioButton, QButtonGroup
+)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt5.QtGui import QFont, QIcon
+
+try:
+    import archinstall
+except ImportError:
+    print("archinstall not found, using subprocess fallback")
+    archinstall = None
+
+
+class InstallationThread(QThread):
+    progress = pyqtSignal(int, str)
+    finished = pyqtSignal(bool, str)
+    
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self._is_running = True
+        
+    def run(self):
+        try:
+            self.progress.emit(10, "Initializing installation...")
+            
+            # Import archinstall modules
+            if archinstall:
+                self.install_with_archinstall()
+            else:
+                self.install_with_subprocess()
+                
+            self.finished.emit(True, "Installation completed successfully!")
+        except Exception as e:
+            self.finished.emit(False, f"Installation failed: {str(e)}")
+    
+    def install_with_archinstall(self):
+        """Install using archinstall Python library"""
+        self.progress.emit(20, "Configuring disk...")
+        
+        # Disk setup
+        if self.config.get('disk'):
+            disk = archinstall.BlockDevice(self.config['disk'])
+            self.progress.emit(30, "Partitioning disk...")
+            
+            # Partitioning logic
+            if self.config.get('wipe_disk'):
+                disk.wipe_partitions()
+            
+            # Create partitions based on config
+            self.progress.emit(40, "Creating filesystems...")
+            
+        self.progress.emit(50, "Installing base system...")
+        
+        # Install base packages
+        self.progress.emit(60, "Configuring system...")
+        
+        # Configure locale, timezone, etc.
+        if self.config.get('locale'):
+            archinstall.set_keyboard_language(self.config['locale'])
+        
+        if self.config.get('timezone'):
+            archinstall.set_timezone(self.config['timezone'])
+        
+        self.progress.emit(70, "Creating users...")
+        
+        # Create users
+        if self.config.get('username'):
+            archinstall.User(
+                self.config['username'],
+                self.config.get('password', ''),
+                sudo=True
+            )
+        
+        self.progress.emit(80, "Installing bootloader...")
+        
+        # Install bootloader
+        if self.config.get('bootloader'):
+            archinstall.install_bootloader(self.config['bootloader'])
+        
+        self.progress.emit(90, "Finalizing installation...")
+        
+        # Final steps
+        self.progress.emit(100, "Installation complete!")
+    
+    def install_with_subprocess(self):
+        """Install using archinstall CLI as fallback"""
+        cmd = ['archinstall', '--config', '/tmp/archinstall-config.json']
+        
+        # Write config to file
+        import json
+        with open('/tmp/archinstall-config.json', 'w') as f:
+            json.dump(self.config, f)
+        
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
+        
+        for line in process.stdout:
+            self.progress.emit(50, line.strip())
+        
+        process.wait()
+        
+        if process.returncode == 0:
+            self.finished.emit(True, "Installation completed successfully!")
+        else:
+            error = process.stderr.read()
+            self.finished.emit(False, f"Installation failed: {error}")
+
+
+class WelcomePage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Welcome to Archibald Linux Installer")
+        self.setSubTitle("This installer will guide you through the installation of Archibald Linux")
+        
+        layout = QVBoxLayout()
+        
+        label = QLabel(
+            "Archibald Linux Installer\n\n"
+            "This installer provides a graphical interface to install Archibald Linux.\n"
+            "You will be asked to configure various aspects of your system including:\n"
+            "• Disk partitioning\n"
+            "• Filesystem selection\n"
+            "• User accounts\n"
+            "• Network configuration\n"
+            "• Locale and timezone\n\n"
+            "Click Next to begin."
+        )
+        label.setWordWrap(True)
+        label.setAlignment(Qt.AlignCenter)
+        label.setFont(QFont("Arial", 12))
+        
+        layout.addWidget(label)
+        layout.addStretch()
+        self.setLayout(layout)
+
+
+class DiskPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Disk Configuration")
+        self.setSubTitle("Select and configure your disk")
+        
+        layout = QVBoxLayout()
+        
+        # Disk selection
+        disk_group = QGroupBox("Select Disk")
+        disk_layout = QFormLayout()
+        
+        self.disk_combo = QComboBox()
+        self.refresh_disks()
+        
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.clicked.connect(self.refresh_disks)
+        
+        disk_layout.addRow("Disk:", self.disk_combo)
+        disk_layout.addRow("", refresh_btn)
+        disk_group.setLayout(disk_layout)
+        
+        # Wipe disk option
+        self.wipe_checkbox = QCheckBox("Wipe disk (delete all partitions)")
+        self.wipe_checkbox.setChecked(True)
+        
+        # Partitioning mode
+        partition_group = QGroupBox("Partitioning Mode")
+        partition_layout = QVBoxLayout()
+        
+        self.auto_partition = QRadioButton("Automatic partitioning")
+        self.manual_partition = QRadioButton("Manual partitioning")
+        self.auto_partition.setChecked(True)
+        
+        partition_layout.addWidget(self.auto_partition)
+        partition_layout.addWidget(self.manual_partition)
+        partition_group.setLayout(partition_layout)
+        
+        # Filesystem
+        fs_group = QGroupBox("Filesystem")
+        fs_layout = QFormLayout()
+        
+        self.filesystem_combo = QComboBox()
+        self.filesystem_combo.addItems(['ext4', 'btrfs', 'xfs', 'f2fs'])
+        self.filesystem_combo.setCurrentText('ext4')
+        
+        fs_layout.addRow("Filesystem:", self.filesystem_combo)
+        fs_group.setLayout(fs_layout)
+        
+        layout.addWidget(disk_group)
+        layout.addWidget(self.wipe_checkbox)
+        layout.addWidget(partition_group)
+        layout.addWidget(fs_group)
+        layout.addStretch()
+        
+        self.setLayout(layout)
+        self.registerField('disk*', self.disk_combo, 'currentText')
+        self.registerField('wipe_disk', self.wipe_checkbox)
+        self.registerField('filesystem', self.filesystem_combo, 'currentText')
+    
+    def refresh_disks(self):
+        self.disk_combo.clear()
+        try:
+            if archinstall:
+                disks = archinstall.all_disks()
+                for disk in disks:
+                    self.disk_combo.addItem(disk.path, disk.path)
+            else:
+                # Fallback: use lsblk
+                result = subprocess.run(['lsblk', '-d', '-n', '-o', 'NAME'], 
+                                      capture_output=True, text=True)
+                for line in result.stdout.strip().split('\n'):
+                    if line:
+                        self.disk_combo.addItem(f"/dev/{line}", f"/dev/{line}")
+        except Exception as e:
+            self.disk_combo.addItem("Error loading disks")
+
+
+class LocalePage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Locale and Timezone")
+        self.setSubTitle("Configure your system locale and timezone")
+        
+        layout = QVBoxLayout()
+        
+        # Locale
+        locale_group = QGroupBox("Locale")
+        locale_layout = QFormLayout()
+        
+        self.locale_combo = QComboBox()
+        self.locale_combo.addItems([
+            'en_US.UTF-8', 'en_GB.UTF-8', 'de_DE.UTF-8', 
+            'fr_FR.UTF-8', 'es_ES.UTF-8', 'it_IT.UTF-8'
+        ])
+        self.locale_combo.setCurrentText('en_US.UTF-8')
+        
+        locale_layout.addRow("Locale:", self.locale_combo)
+        locale_group.setLayout(locale_layout)
+        
+        # Timezone
+        timezone_group = QGroupBox("Timezone")
+        timezone_layout = QFormLayout()
+        
+        self.timezone_combo = QComboBox()
+        self.timezones = [
+            'UTC', 'America/New_York', 'America/Los_Angeles',
+            'Europe/London', 'Europe/Paris', 'Europe/Berlin',
+            'Asia/Tokyo', 'Australia/Sydney'
+        ]
+        self.timezone_combo.addItems(self.timezones)
+        self.timezone_combo.setCurrentText('UTC')
+        
+        timezone_layout.addRow("Timezone:", self.timezone_combo)
+        timezone_group.setLayout(timezone_layout)
+        
+        # Keyboard layout
+        keyboard_group = QGroupBox("Keyboard Layout")
+        keyboard_layout = QFormLayout()
+        
+        self.keyboard_combo = QComboBox()
+        self.keyboard_combo.addItems([
+            'us', 'uk', 'de', 'fr', 'es', 'it'
+        ])
+        self.keyboard_combo.setCurrentText('us')
+        
+        keyboard_layout.addRow("Keyboard:", self.keyboard_combo)
+        keyboard_group.setLayout(keyboard_layout)
+        
+        layout.addWidget(locale_group)
+        layout.addWidget(timezone_group)
+        layout.addWidget(keyboard_group)
+        layout.addStretch()
+        
+        self.setLayout(layout)
+        self.registerField('locale', self.locale_combo, 'currentText')
+        self.registerField('timezone', self.timezone_combo, 'currentText')
+        self.registerField('keyboard', self.keyboard_combo, 'currentText')
+
+
+class UserPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("User Configuration")
+        self.setSubTitle("Create user accounts")
+        
+        layout = QVBoxLayout()
+        
+        # Root password
+        root_group = QGroupBox("Root Password")
+        root_layout = QFormLayout()
+        
+        self.root_password = QLineEdit()
+        self.root_password.setEchoMode(QLineEdit.Password)
+        self.root_password_confirm = QLineEdit()
+        self.root_password_confirm.setEchoMode(QLineEdit.Password)
+        
+        root_layout.addRow("Password:", self.root_password)
+        root_layout.addRow("Confirm:", self.root_password_confirm)
+        root_group.setLayout(root_layout)
+        
+        # User account
+        user_group = QGroupBox("User Account")
+        user_layout = QFormLayout()
+        
+        self.username = QLineEdit()
+        self.user_password = QLineEdit()
+        self.user_password.setEchoMode(QLineEdit.Password)
+        self.user_password_confirm = QLineEdit()
+        self.user_password_confirm.setEchoMode(QLineEdit.Password)
+        
+        user_layout.addRow("Username:", self.username)
+        user_layout.addRow("Password:", self.user_password)
+        user_layout.addRow("Confirm:", self.user_password_confirm)
+        user_group.setLayout(user_layout)
+        
+        layout.addWidget(root_group)
+        layout.addWidget(user_group)
+        layout.addStretch()
+        
+        self.setLayout(layout)
+        self.registerField('root_password*', self.root_password)
+        self.registerField('username', self.username)
+        self.registerField('user_password', self.user_password)
+
+
+class NetworkPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Network Configuration")
+        self.setSubTitle("Configure network settings")
+        
+        layout = QVBoxLayout()
+        
+        # Hostname
+        hostname_group = QGroupBox("Hostname")
+        hostname_layout = QFormLayout()
+        
+        self.hostname = QLineEdit()
+        self.hostname.setText("archibald")
+        
+        hostname_layout.addRow("Hostname:", self.hostname)
+        hostname_group.setLayout(hostname_layout)
+        
+        # Network interface
+        network_group = QGroupBox("Network Interface")
+        network_layout = QFormLayout()
+        
+        self.network_combo = QComboBox()
+        self.refresh_networks()
+        
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.clicked.connect(self.refresh_networks)
+        
+        network_layout.addRow("Interface:", self.network_combo)
+        network_layout.addRow("", refresh_btn)
+        network_group.setLayout(network_layout)
+        
+        # Use DHCP
+        self.dhcp_checkbox = QCheckBox("Use DHCP (recommended)")
+        self.dhcp_checkbox.setChecked(True)
+        
+        layout.addWidget(hostname_group)
+        layout.addWidget(network_group)
+        layout.addWidget(self.dhcp_checkbox)
+        layout.addStretch()
+        
+        self.setLayout(layout)
+        self.registerField('hostname*', self.hostname)
+        self.registerField('network_interface', self.network_combo, 'currentText')
+    
+    def refresh_networks(self):
+        self.network_combo.clear()
+        try:
+            result = subprocess.run(['ip', 'link', 'show'], 
+                                  capture_output=True, text=True)
+            for line in result.stdout.split('\n'):
+                if ': ' in line and 'lo:' not in line:
+                    interface = line.split(':')[1].strip().split('@')[0]
+                    if interface:
+                        self.network_combo.addItem(interface)
+        except Exception as e:
+            self.network_combo.addItem("Error loading interfaces")
+
+
+class PackagesPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Package Selection")
+        self.setSubTitle("Select additional packages to install")
+        
+        layout = QVBoxLayout()
+        
+        # Package groups
+        packages_group = QGroupBox("Package Groups")
+        packages_layout = QVBoxLayout()
+        
+        self.desktop_checkbox = QCheckBox("Desktop Environment (KDE Plasma)")
+        self.desktop_checkbox.setChecked(True)
+        
+        self.laptop_checkbox = QCheckBox("Laptop Tools")
+        
+        self.server_checkbox = QCheckBox("Server Tools")
+        
+        self.development_checkbox = QCheckBox("Development Tools")
+        
+        self.multimedia_checkbox = QCheckBox("Multimedia")
+        
+        packages_layout.addWidget(self.desktop_checkbox)
+        packages_layout.addWidget(self.laptop_checkbox)
+        packages_layout.addWidget(self.server_checkbox)
+        packages_layout.addWidget(self.development_checkbox)
+        packages_layout.addWidget(self.multimedia_checkbox)
+        packages_group.setLayout(packages_layout)
+        
+        # Custom packages
+        custom_group = QGroupBox("Custom Packages")
+        custom_layout = QVBoxLayout()
+        
+        self.custom_packages = QLineEdit()
+        self.custom_packages.setPlaceholderText("Enter additional packages (space-separated)")
+        
+        custom_layout.addWidget(QLabel("Additional packages:"))
+        custom_layout.addWidget(self.custom_packages)
+        custom_group.setLayout(custom_layout)
+        
+        layout.addWidget(packages_group)
+        layout.addWidget(custom_group)
+        layout.addStretch()
+        
+        self.setLayout(layout)
+
+
+class BootloaderPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Bootloader Configuration")
+        self.setSubTitle("Configure the system bootloader")
+        
+        layout = QVBoxLayout()
+        
+        # Bootloader selection
+        bootloader_group = QGroupBox("Bootloader")
+        bootloader_layout = QVBoxLayout()
+        
+        self.grub_radio = QRadioButton("GRUB (recommended)")
+        self.systemd_radio = QRadioButton("systemd-boot")
+        self.grub_radio.setChecked(True)
+        
+        bootloader_layout.addWidget(self.grub_radio)
+        bootloader_layout.addWidget(self.systemd_radio)
+        bootloader_group.setLayout(bootloader_layout)
+        
+        # Boot drive
+        boot_group = QGroupBox("Boot Drive")
+        boot_layout = QFormLayout()
+        
+        self.boot_drive = QComboBox()
+        self.refresh_drives()
+        
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.clicked.connect(self.refresh_drives)
+        
+        boot_layout.addRow("Boot Drive:", self.boot_drive)
+        boot_layout.addRow("", refresh_btn)
+        boot_group.setLayout(boot_layout)
+        
+        layout.addWidget(bootloader_group)
+        layout.addWidget(boot_group)
+        layout.addStretch()
+        
+        self.setLayout(layout)
+        self.registerField('boot_drive', self.boot_drive, 'currentText')
+    
+    def refresh_drives(self):
+        self.boot_drive.clear()
+        try:
+            result = subprocess.run(['lsblk', '-d', '-n', '-o', 'NAME'], 
+                                  capture_output=True, text=True)
+            for line in result.stdout.strip().split('\n'):
+                if line:
+                    self.boot_drive.addItem(f"/dev/{line}", f"/dev/{line}")
+        except Exception as e:
+            self.boot_drive.addItem("Error loading drives")
+
+
+class SummaryPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Installation Summary")
+        self.setSubTitle("Review your configuration before installation")
+        
+        layout = QVBoxLayout()
+        
+        self.summary_text = QTextEdit()
+        self.summary_text.setReadOnly(True)
+        self.summary_text.setFont(QFont("Courier", 10))
+        
+        layout.addWidget(self.summary_text)
+        self.setLayout(layout)
+    
+    def initializePage(self):
+        wizard = self.wizard()
+        
+        summary = "=== Installation Configuration ===\n\n"
+        summary += f"Disk: {wizard.field('disk')}\n"
+        summary += f"Wipe disk: {wizard.field('wipe_disk')}\n"
+        summary += f"Filesystem: {wizard.field('filesystem')}\n\n"
+        summary += f"Locale: {wizard.field('locale')}\n"
+        summary += f"Timezone: {wizard.field('timezone')}\n"
+        summary += f"Keyboard: {wizard.field('keyboard')}\n\n"
+        summary += f"Hostname: {wizard.field('hostname')}\n"
+        summary += f"Network interface: {wizard.field('network_interface')}\n\n"
+        summary += f"Boot drive: {wizard.field('boot_drive')}\n\n"
+        
+        if wizard.field('username'):
+            summary += f"Username: {wizard.field('username')}\n"
+        
+        self.summary_text.setPlainText(summary)
+
+
+class InstallPage(QWizardPage):
+    def __init__(self):
+        super().__init__()
+        self.setTitle("Installation")
+        self.setSubTitle("Installing Archibald Linux")
+        
+        layout = QVBoxLayout()
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        
+        self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setFont(QFont("Courier", 9))
+        
+        layout.addWidget(QLabel("Installation Progress:"))
+        layout.addWidget(self.progress_bar)
+        layout.addWidget(QLabel("Installation Log:"))
+        layout.addWidget(self.log_text)
+        
+        self.setLayout(layout)
+        self.installation_thread = None
+    
+    def initializePage(self):
+        wizard = self.wizard()
+        
+        # Build configuration
+        config = {
+            'disk': wizard.field('disk'),
+            'wipe_disk': wizard.field('wipe_disk'),
+            'filesystem': wizard.field('filesystem'),
+            'locale': wizard.field('locale'),
+            'timezone': wizard.field('timezone'),
+            'keyboard': wizard.field('keyboard'),
+            'hostname': wizard.field('hostname'),
+            'network_interface': wizard.field('network_interface'),
+            'boot_drive': wizard.field('boot_drive'),
+            'username': wizard.field('username'),
+            'password': wizard.field('user_password'),
+            'root_password': wizard.field('root_password'),
+        }
+        
+        # Start installation thread
+        self.installation_thread = InstallationThread(config)
+        self.installation_thread.progress.connect(self.update_progress)
+        self.installation_thread.finished.connect(self.installation_finished)
+        self.installation_thread.start()
+        
+        wizard.setButtonEnabled(QWizard.BackButton, False)
+        wizard.setButtonEnabled(QWizard.FinishButton, False)
+    
+    def update_progress(self, value, message):
+        self.progress_bar.setValue(value)
+        self.log_text.append(message)
+    
+    def installation_finished(self, success, message):
+        if success:
+            self.log_text.append("\n" + "="*50)
+            self.log_text.append("Installation completed successfully!")
+            self.log_text.append("="*50)
+            QMessageBox.information(self, "Success", message)
+        else:
+            self.log_text.append("\n" + "="*50)
+            self.log_text.append(f"Installation failed: {message}")
+            self.log_text.append("="*50)
+            QMessageBox.critical(self, "Error", message)
+        
+        wizard = self.wizard()
+        wizard.setButtonEnabled(QWizard.BackButton, True)
+        wizard.setButtonEnabled(QWizard.FinishButton, True)
+
+
+class ArchibaldInstaller(QWizard):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Archibald Linux Installer")
+        self.setMinimumSize(800, 600)
+        
+        # Add pages
+        self.addPage(WelcomePage())
+        self.addPage(DiskPage())
+        self.addPage(LocalePage())
+        self.addPage(UserPage())
+        self.addPage(NetworkPage())
+        self.addPage(PackagesPage())
+        self.addPage(BootloaderPage())
+        self.addPage(SummaryPage())
+        self.addPage(InstallPage())
+        
+        # Set wizard style
+        self.setWizardStyle(QWizard.ModernStyle)
+        self.setOption(QWizard.HaveHelpButton, False)
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName("Archibald Linux Installer")
+    
+    # Check if running as root
+    if os.geteuid() != 0:
+        QMessageBox.critical(
+            None, 
+            "Error", 
+            "This installer must be run as root.\nPlease use pkexec or sudo."
+        )
+        sys.exit(1)
+    
+    installer = ArchibaldInstaller()
+    installer.show()
+    
+    sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    main()

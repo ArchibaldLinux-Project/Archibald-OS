@@ -1,0 +1,5 @@
+#!/bin/bash
+# Archibald Linux info script for KInfoCenter
+
+echo "Distribution: Archibald Linux"
+echo "Archibald Linux"
