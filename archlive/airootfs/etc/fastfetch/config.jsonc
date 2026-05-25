@@ -1,0 +1,105 @@
+# Fastfetch config for Archibald Linux
+
+{
+    "$schema": "https://fastfetch.dev/schema.json",
+    "logo": {
+        "type": "small",
+        "paddingRight": 2,
+        "color": {
+            "1": "cyan",
+            "2": "blue"
+        }
+    },
+    "display": {
+        "separator": "  ",
+        "color": {
+            "user": "green",
+            "host": "cyan",
+            "sep": "white"
+        }
+    },
+    "modules": [
+        {
+            "type": "title",
+            "color": {
+                "1": "cyan",
+                "2": "blue"
+            }
+        },
+        {
+            "type": "os",
+            "key": "OS",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "host",
+            "key": "Host",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "kernel",
+            "key": "Kernel",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "uptime",
+            "key": "Uptime",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "packages",
+            "key": "Packages",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "shell",
+            "key": "Shell",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "resolution",
+            "key": "Resolution",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "de",
+            "key": "DE",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "wm",
+            "key": "WM",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "theme",
+            "key": "Theme",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "icons",
+            "key": "Icons",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "terminal",
+            "key": "Terminal",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "cpu",
+            "key": "CPU",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "gpu",
+            "key": "GPU",
+            "keyColor": "cyan"
+        },
+        {
+            "type": "memory",
+            "key": "Memory",
+            "keyColor": "cyan"
+        }
+    ]
+}

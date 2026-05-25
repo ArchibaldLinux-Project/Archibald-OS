@@ -3,3 +3,8 @@
 
 echo "Distribution: Archibald Linux"
 echo "Archibald Linux"
+
+# Run fastfetch if available
+if command -v fastfetch &> /dev/null; then
+    fastfetch
+fi
