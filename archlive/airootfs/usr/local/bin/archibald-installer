@@ -167,6 +167,7 @@ class DiskPage(QWizardPage):
         
         self.disk_combo = QComboBox()
         self.refresh_disks()
+        self.disk_combo.currentTextChanged.connect(self.on_disk_changed)
         
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.refresh_disks)
@@ -229,6 +230,27 @@ class DiskPage(QWizardPage):
                         self.disk_combo.addItem(f"/dev/{line}", f"/dev/{line}")
         except Exception as e:
             self.disk_combo.addItem("Error loading disks")
+        
+        # Emit completeChanged after refresh
+        self.completeChanged.emit()
+    
+    def on_disk_changed(self, text):
+        """Handle disk selection change"""
+        self.completeChanged.emit()
+    
+    def validatePage(self):
+        """Validate that a valid disk is selected"""
+        current_text = self.disk_combo.currentText()
+        if not current_text or current_text == "Error loading disks" or current_text == "":
+            QMessageBox.warning(self, "No Disk Selected", 
+                             "Please select a valid disk to continue.")
+            return False
+        return True
+    
+    def isComplete(self):
+        """Check if the page is complete"""
+        current_text = self.disk_combo.currentText()
+        return bool(current_text and current_text != "Error loading disks")
 
 
 class LocalePage(QWizardPage):
