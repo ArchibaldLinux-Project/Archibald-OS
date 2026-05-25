@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Set Archibald Wallpaper
+Comment=Set Archibald Linux default wallpaper
+Exec=/usr/local/bin/set-archibald-wallpaper
+X-KDE-autostart-phase=2

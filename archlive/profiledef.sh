@@ -25,4 +25,5 @@ file_permissions=(
   ["/usr/local/bin/archibald-installer"]="0:0:755"
   ["/usr/local/bin/archibald-welcome"]="0:0:755"
   ["/usr/local/bin/archibald-info"]="0:0:755"
+  ["/usr/local/bin/set-archibald-wallpaper"]="0:0:755"
 )

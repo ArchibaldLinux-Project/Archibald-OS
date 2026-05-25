@@ -1,0 +1,41 @@
+#!/bin/bash
+# Set Archibald Linux default wallpaper
+
+WALLPAPER="/usr/share/wallpapers/archibald/contents/images/archibald-wallpaper.png"
+
+# Check if wallpaper exists
+if [ ! -f "$WALLPAPER" ]; then
+    echo "Wallpaper not found: $WALLPAPER"
+    exit 1
+fi
+
+# Set wallpaper using plasma-apply-wallpaperimage if available
+if command -v plasma-apply-wallpaperimage &> /dev/null; then
+    plasma-apply-wallpaperimage "$WALLPAPER"
+    echo "Wallpaper set using plasma-apply-wallpaperimage"
+    exit 0
+fi
+
+# Fallback: use dbus to set wallpaper
+if [ -n "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+        var allDesktops = desktops();
+        for (i=0; i<allDesktops.length; i++) {
+            d = allDesktops[i];
+            d.wallpaperPlugin = 'org.kde.image';
+            d.currentConfigGroup = Array('Wallpaper', 'org.kde.image', 'General');
+            d.writeConfig('Image', 'file://$WALLPAPER');
+        }
+    " 2>/dev/null
+    echo "Wallpaper set using dbus"
+    exit 0
+fi
+
+# If no display, skip
+if [ -z "$DISPLAY" ]; then
+    echo "No display available, skipping wallpaper setup"
+    exit 0
+fi
+
+echo "Could not set wallpaper"
+exit 1

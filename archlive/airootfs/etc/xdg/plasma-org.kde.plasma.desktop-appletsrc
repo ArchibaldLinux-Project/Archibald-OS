@@ -4,3 +4,10 @@ wallpaperplugin=org.kde.image
 
 [Containments][1][Wallpaper][org.kde.image][General]
 Image=file:///usr/share/wallpapers/archibald/contents/images/archibald-wallpaper.png
+
+[Containments][2]
+ActivityId=
+wallpaperplugin=org.kde.image
+
+[Containments][2][Wallpaper][org.kde.image][General]
+Image=file:///usr/share/wallpapers/archibald/contents/images/archibald-wallpaper.png
