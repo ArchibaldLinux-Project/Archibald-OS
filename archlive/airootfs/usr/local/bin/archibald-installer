@@ -789,21 +789,31 @@ class ArchibaldInstaller(QWizard):
             QPushButton {
                 background-color: #3daee9;
                 color: white;
+                border: 1px solid #2c7da0;
                 border-radius: 4px;
                 padding: 8px 16px;
                 font-weight: bold;
+                min-width: 80px;
             }
             QPushButton:hover {
                 background-color: #5bc0de;
+                border: 1px solid #31b0d5;
             }
             QPushButton:pressed {
                 background-color: #31b0d5;
+                border: 1px solid #265a88;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+                border: 1px solid #999999;
             }
             QLineEdit {
                 padding: 6px;
                 border: 1px solid #cccccc;
                 border-radius: 3px;
                 background-color: #ffffff;
+                color: #333333;
             }
             QLineEdit:focus {
                 border: 2px solid #3daee9;
@@ -813,22 +823,53 @@ class ArchibaldInstaller(QWizard):
                 border: 1px solid #cccccc;
                 border-radius: 3px;
                 background-color: #ffffff;
+                color: #333333;
             }
             QComboBox:focus {
                 border: 2px solid #3daee9;
             }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                color: #333333;
+                selection-background-color: #3daee9;
+                selection-color: white;
+            }
             QCheckBox {
                 spacing: 5px;
+                color: #333333;
             }
             QCheckBox::indicator {
                 width: 18px;
                 height: 18px;
+                border: 2px solid #cccccc;
+                border-radius: 3px;
+                background-color: #ffffff;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #3daee9;
+                border: 2px solid #2c7da0;
+            }
+            QRadioButton {
+                spacing: 5px;
+                color: #333333;
+            }
+            QRadioButton::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #cccccc;
+                border-radius: 9px;
+                background-color: #ffffff;
+            }
+            QRadioButton::indicator:checked {
+                background-color: #3daee9;
+                border: 2px solid #2c7da0;
             }
             QProgressBar {
                 border: 2px solid #cccccc;
                 border-radius: 5px;
                 text-align: center;
                 background-color: #f0f0f0;
+                color: #333333;
             }
             QProgressBar::chunk {
                 background-color: #3daee9;
@@ -838,6 +879,10 @@ class ArchibaldInstaller(QWizard):
                 border: 1px solid #cccccc;
                 border-radius: 3px;
                 background-color: #f9f9f9;
+                color: #333333;
+            }
+            QLabel {
+                color: #333333;
             }
         """)
         
