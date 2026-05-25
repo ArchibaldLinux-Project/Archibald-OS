@@ -128,28 +128,64 @@ class InstallationThread(QThread):
 class WelcomePage(QWizardPage):
     def __init__(self):
         super().__init__()
-        self.setTitle("Welcome to Archibald Linux Installer")
-        self.setSubTitle("This installer will guide you through the installation of Archibald Linux")
+        self.setTitle("Welcome to Archibald Linux")
+        self.setSubTitle("A modern, user-friendly Arch Linux distribution")
         
         layout = QVBoxLayout()
         
-        label = QLabel(
-            "Archibald Linux Installer\n\n"
-            "This installer provides a graphical interface to install Archibald Linux.\n"
-            "You will be asked to configure various aspects of your system including:\n"
-            "• Disk partitioning\n"
-            "• Filesystem selection\n"
-            "• User accounts\n"
-            "• Network configuration\n"
-            "• Locale and timezone\n\n"
-            "Click Next to begin."
-        )
-        label.setWordWrap(True)
-        label.setAlignment(Qt.AlignCenter)
-        label.setFont(QFont("Arial", 12))
+        # Header
+        header_label = QLabel("Archibald Linux Installer")
+        header_label.setAlignment(Qt.AlignCenter)
+        header_label.setFont(QFont("Arial", 20, QFont.Bold))
+        header_label.setStyleSheet("color: #3daee9; margin-bottom: 20px;")
         
-        layout.addWidget(label)
+        # Description
+        desc_label = QLabel(
+            "This installer will guide you through the installation of Archibald Linux, "
+            "a modern and user-friendly distribution based on Arch Linux."
+        )
+        desc_label.setWordWrap(True)
+        desc_label.setAlignment(Qt.AlignCenter)
+        desc_label.setFont(QFont("Arial", 11))
+        desc_label.setStyleSheet("color: #555555; margin-bottom: 30px;")
+        
+        # Features list
+        features_group = QGroupBox("Installation Steps")
+        features_layout = QVBoxLayout()
+        
+        features = [
+            "📁 Disk partitioning and filesystem configuration",
+            "🌍 Locale and timezone selection",
+            "👤 User account creation",
+            "🌐 Network configuration",
+            "📦 Package selection",
+            "🔧 Bootloader setup"
+        ]
+        
+        for feature in features:
+            feature_label = QLabel(feature)
+            feature_label.setFont(QFont("Arial", 10))
+            feature_label.setStyleSheet("padding: 5px;")
+            features_layout.addWidget(feature_label)
+        
+        features_group.setLayout(features_layout)
+        
+        # Info text
+        info_label = QLabel(
+            "\n⚠️ This installer will modify your disk configuration. "
+            "Please ensure you have backed up any important data before proceeding."
+        )
+        info_label.setWordWrap(True)
+        info_label.setAlignment(Qt.AlignCenter)
+        info_label.setFont(QFont("Arial", 9))
+        info_label.setStyleSheet("color: #d9534f; margin-top: 20px;")
+        
+        layout.addWidget(header_label)
+        layout.addWidget(desc_label)
+        layout.addWidget(features_group)
+        layout.addWidget(info_label)
         layout.addStretch()
+        
         self.setLayout(layout)
 
 
@@ -385,6 +421,7 @@ class NetworkPage(QWizardPage):
         
         self.network_combo = QComboBox()
         self.refresh_networks()
+        self.network_combo.currentTextChanged.connect(self.on_network_changed)
         
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.refresh_networks)
@@ -418,6 +455,27 @@ class NetworkPage(QWizardPage):
                         self.network_combo.addItem(interface)
         except Exception as e:
             self.network_combo.addItem("Error loading interfaces")
+        
+        # Emit completeChanged after refresh
+        self.completeChanged.emit()
+    
+    def on_network_changed(self, text):
+        """Handle network interface selection change"""
+        self.completeChanged.emit()
+    
+    def validatePage(self):
+        """Validate that a valid network interface is selected"""
+        current_text = self.network_combo.currentText()
+        if not current_text or current_text == "Error loading interfaces" or current_text == "":
+            QMessageBox.warning(self, "No Network Interface Selected", 
+                             "Please select a valid network interface to continue.")
+            return False
+        return True
+    
+    def isComplete(self):
+        """Check if the page is complete"""
+        current_text = self.network_combo.currentText()
+        return bool(current_text and current_text != "Error loading interfaces")
 
 
 class PackagesPage(QWizardPage):
@@ -529,29 +587,63 @@ class SummaryPage(QWizardPage):
         
         layout = QVBoxLayout()
         
+        # Warning label
+        warning_label = QLabel(
+            "⚠️ Please review the configuration below carefully. "
+            "Once you start the installation, your disk will be modified."
+        )
+        warning_label.setWordWrap(True)
+        warning_label.setStyleSheet("color: #d9534f; font-weight: bold; padding: 10px; "
+                                     "background-color: #f9f2f2; border-radius: 5px; margin-bottom: 15px;")
+        
+        # Summary text
         self.summary_text = QTextEdit()
         self.summary_text.setReadOnly(True)
         self.summary_text.setFont(QFont("Courier", 10))
+        self.summary_text.setStyleSheet("background-color: #f9f9f9; border: 1px solid #cccccc; "
+                                        "border-radius: 5px; padding: 10px;")
         
+        layout.addWidget(warning_label)
         layout.addWidget(self.summary_text)
         self.setLayout(layout)
     
     def initializePage(self):
         wizard = self.wizard()
         
-        summary = "=== Installation Configuration ===\n\n"
-        summary += f"Disk: {wizard.field('disk')}\n"
-        summary += f"Wipe disk: {wizard.field('wipe_disk')}\n"
-        summary += f"Filesystem: {wizard.field('filesystem')}\n\n"
-        summary += f"Locale: {wizard.field('locale')}\n"
-        summary += f"Timezone: {wizard.field('timezone')}\n"
-        summary += f"Keyboard: {wizard.field('keyboard')}\n\n"
-        summary += f"Hostname: {wizard.field('hostname')}\n"
-        summary += f"Network interface: {wizard.field('network_interface')}\n\n"
-        summary += f"Boot drive: {wizard.field('boot_drive')}\n\n"
+        summary = "═══════════════════════════════════════════════════════════════\n"
+        summary += "           ARCHIBALD LINUX INSTALLATION CONFIGURATION\n"
+        summary += "═══════════════════════════════════════════════════════════════\n\n"
         
+        summary += "📁 DISK CONFIGURATION\n"
+        summary += "─────────────────────────────────────────────────────────────────\n"
+        summary += f"  Disk:           {wizard.field('disk')}\n"
+        summary += f"  Wipe disk:      {'Yes' if wizard.field('wipe_disk') else 'No'}\n"
+        summary += f"  Filesystem:     {wizard.field('filesystem')}\n\n"
+        
+        summary += "🌍 LOCALIZATION\n"
+        summary += "─────────────────────────────────────────────────────────────────\n"
+        summary += f"  Locale:         {wizard.field('locale')}\n"
+        summary += f"  Timezone:       {wizard.field('timezone')}\n"
+        summary += f"  Keyboard:       {wizard.field('keyboard')}\n\n"
+        
+        summary += "🌐 NETWORK\n"
+        summary += "─────────────────────────────────────────────────────────────────\n"
+        summary += f"  Hostname:       {wizard.field('hostname')}\n"
+        summary += f"  Interface:      {wizard.field('network_interface')}\n\n"
+        
+        summary += "👤 USER ACCOUNTS\n"
+        summary += "─────────────────────────────────────────────────────────────────\n"
         if wizard.field('username'):
-            summary += f"Username: {wizard.field('username')}\n"
+            summary += f"  Username:       {wizard.field('username')}\n"
+        else:
+            summary += f"  Username:       (No user configured)\n"
+        summary += f"  Root password:  {'Set' if wizard.field('root_password') else 'Not set'}\n\n"
+        
+        summary += "🔧 BOOTLOADER\n"
+        summary += "─────────────────────────────────────────────────────────────────\n"
+        summary += f"  Boot drive:     {wizard.field('boot_drive')}\n\n"
+        
+        summary += "═══════════════════════════════════════════════════════════════\n"
         
         self.summary_text.setPlainText(summary)
 
@@ -564,17 +656,45 @@ class InstallPage(QWizardPage):
         
         layout = QVBoxLayout()
         
+        # Status label
+        self.status_label = QLabel("Preparing installation...")
+        self.status_label.setFont(QFont("Arial", 12, QFont.Bold))
+        self.status_label.setStyleSheet("color: #3daee9; margin-bottom: 10px;")
+        
+        # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #cccccc;
+                border-radius: 5px;
+                text-align: center;
+                background-color: #f0f0f0;
+                font-weight: bold;
+            }
+            QProgressBar::chunk {
+                background-color: #3daee9;
+                border-radius: 3px;
+            }
+        """)
+        
+        # Log text
+        log_group = QGroupBox("Installation Log")
+        log_layout = QVBoxLayout()
         
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setFont(QFont("Courier", 9))
+        self.log_text.setStyleSheet("background-color: #f9f9f9; border: 1px solid #cccccc; "
+                                   "border-radius: 3px; padding: 5px;")
         
-        layout.addWidget(QLabel("Installation Progress:"))
+        log_layout.addWidget(self.log_text)
+        log_group.setLayout(log_layout)
+        
+        layout.addWidget(self.status_label)
+        layout.addWidget(QLabel("Progress:"))
         layout.addWidget(self.progress_bar)
-        layout.addWidget(QLabel("Installation Log:"))
-        layout.addWidget(self.log_text)
+        layout.addWidget(log_group)
         
         self.setLayout(layout)
         self.installation_thread = None
@@ -609,6 +729,7 @@ class InstallPage(QWizardPage):
     
     def update_progress(self, value, message):
         self.progress_bar.setValue(value)
+        self.status_label.setText(message)
         self.log_text.append(message)
     
     def installation_finished(self, success, message):
@@ -632,7 +753,93 @@ class ArchibaldInstaller(QWizard):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Archibald Linux Installer")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(900, 650)
+        self.resize(1000, 700)
+        
+        # Set wizard style
+        self.setWizardStyle(QWizard.ModernStyle)
+        self.setOption(QWizard.HaveHelpButton, False)
+        self.setOption(QWizard.HaveCustomButton1, False)
+        
+        # Set wizard colors and styling
+        self.setStyleSheet("""
+            QWizard {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #f5f5f5, stop:1 #e0e0e0);
+            }
+            QWizard QWidget {
+                background-color: #ffffff;
+            }
+            QWizardPage {
+                background-color: #ffffff;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid #cccccc;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 0 5px;
+                background-color: #ffffff;
+            }
+            QPushButton {
+                background-color: #3daee9;
+                color: white;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #5bc0de;
+            }
+            QPushButton:pressed {
+                background-color: #31b0d5;
+            }
+            QLineEdit {
+                padding: 6px;
+                border: 1px solid #cccccc;
+                border-radius: 3px;
+                background-color: #ffffff;
+            }
+            QLineEdit:focus {
+                border: 2px solid #3daee9;
+            }
+            QComboBox {
+                padding: 6px;
+                border: 1px solid #cccccc;
+                border-radius: 3px;
+                background-color: #ffffff;
+            }
+            QComboBox:focus {
+                border: 2px solid #3daee9;
+            }
+            QCheckBox {
+                spacing: 5px;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+            }
+            QProgressBar {
+                border: 2px solid #cccccc;
+                border-radius: 5px;
+                text-align: center;
+                background-color: #f0f0f0;
+            }
+            QProgressBar::chunk {
+                background-color: #3daee9;
+                border-radius: 3px;
+            }
+            QTextEdit {
+                border: 1px solid #cccccc;
+                border-radius: 3px;
+                background-color: #f9f9f9;
+            }
+        """)
         
         # Add pages
         self.addPage(WelcomePage())
@@ -644,10 +851,6 @@ class ArchibaldInstaller(QWizard):
         self.addPage(BootloaderPage())
         self.addPage(SummaryPage())
         self.addPage(InstallPage())
-        
-        # Set wizard style
-        self.setWizardStyle(QWizard.ModernStyle)
-        self.setOption(QWizard.HaveHelpButton, False)
 
 
 def main():
